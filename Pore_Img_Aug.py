@@ -8,7 +8,7 @@ from scipy.ndimage import binary_dilation, median_filter, grey_dilation
 
 # The following comment assumes an input image size of 256x256, a sliding window size of 32x32, a stride of 4,
 # and an overlap of 3 between neighboring windows
-def Augmentation(Inp, Lab=None, GridRatio=8):
+def Augmentation(Inp, Lab=None, image_to_grid_ratio=8):
     # Pre-processing input data
     Inp = Inp.astype(np.double)
     Inp_max = np.max(Inp.flatten())
@@ -29,7 +29,7 @@ def Augmentation(Inp, Lab=None, GridRatio=8):
 
     Lab = np.uint8(Lab > 0)
 
-    Inp2, Lab2 = Img_Aug(Inp0, Shp, Lab, GridRatio)
+    Inp2, Lab2 = Img_Aug(Inp0, Shp, Lab, image_to_grid_ratio)
     Inp2 = Inp2.astype(np.uint8)
 
     # Reverse the pre-processing
@@ -37,16 +37,16 @@ def Augmentation(Inp, Lab=None, GridRatio=8):
 
     return Inp2, Lab2
 
-def Img_Aug(Inp, Shp, Lab, GridRatio=8):
+def Img_Aug(Inp, Shp, Lab, image_to_grid_ratio=8):
     # Declaring initial hyperparameters
-    s = np.ceil(np.array(Inp.shape[:2])/GridRatio).astype(int)      # size of each window (32x32)
-    ol = 8                                                          # overlap size
-    nol = s-2*ol                                                    # non-overlap portion
-    stride = np.ceil(np.array(Shp)/160).astype(int)                 # stride
-    ph = 0                                                          # placeholder index
+    s = np.ceil(np.array(Inp.shape[:2])/image_to_grid_ratio).astype(int)      # size of each window (32x32)
+    ol = 8                                                                    # overlap size
+    nol = s-2*ol                                                              # non-overlap portion
+    stride = np.ceil(np.array(Shp)/160).astype(int)                           # stride
+    ph = 0                                                                    # placeholder index
     n = np.ceil((Inp.shape[0]-(1+s[0]))/stride[0])*np.ceil(
-        (Inp.shape[1]-(1+s[1]))/stride[1])                          # number of samples (56*56)
-    n = int(n*2)                                                    # double the number of samples consider the flipped images
+        (Inp.shape[1]-(1+s[1]))/stride[1])                                    # number of samples (56*56)
+    n = int(n*2)                                                              # double the number of samples consider the flipped images
     p_ini = np.array([0, 0])
     p = p_ini.copy()
 
@@ -60,7 +60,7 @@ def Img_Aug(Inp, Shp, Lab, GridRatio=8):
     # Crop the images through sliding window
     I1 = np.zeros((s[0], s[1], n), dtype=np.uint8)
     I2 = np.zeros((s[0], s[1], n), dtype=np.uint8)
-    I3 = np.zeros((s[0], s[1], 3, n), dtype=np.uint8)               # 32x32x3x6272
+    I3 = np.zeros((s[0], s[1], 3, n), dtype=np.uint8)                   # 32x32x3x6272
 
     while (p[0] + s[0]) < Inp.shape[0]:
         p[1] = p_ini[1]
@@ -130,7 +130,7 @@ def Img_Aug(Inp, Shp, Lab, GridRatio=8):
         # Choose the window location
         t = wrk_map[p[0]-ol:p[0]+nol[0]+ol, p[1]-ol:p[1]+nol[1]+ol]             # 32x32
 
-        Win = t > 0
+        Win = t > 0                                                             # check whether there is an existing edge in the window location
         Win3 = Win.flatten()
         Win3 = Win3[Win2 != 0]                                                  # choose the overlapping edges (348 pixels)
         Win3 = np.tile(Win3[:, np.newaxis], (1,I1.shape[2])).T                  # 6272x348
@@ -164,6 +164,7 @@ def Img_Aug(Inp, Shp, Lab, GridRatio=8):
                 ID = int(ID[0, 0])
                 E = 0
 
+        # Exact euclidean distance transform
         w = ndimage.morphology.distance_transform_edt(np.logical_not(1-Win))
         w = w / np.max(w.flatten())
         w[np.isnan(w)] = 0
@@ -174,7 +175,7 @@ def Img_Aug(Inp, Shp, Lab, GridRatio=8):
         t0 = wrk_map0[p[0]-ol:p[0]+nol[0]+ol, p[1]-ol:p[1]+nol[1]+ol, :].astype(np.float64)
         w0 = w0.astype(np.float64)
         IMG = IMG.astype(np.float64)
-        wrk_map0[p[0]-ol:p[0]+nol[0]+ol, p[1]-ol:p[1]+nol[1]+ol, :] = (t0*w0)+(IMG*(1-w0))
+        wrk_map0[p[0]-ol:p[0]+nol[0]+ol, p[1]-ol:p[1]+nol[1]+ol, :] = (t0*w0)+(IMG*(1-w0))    # weighted image combination (interpolation)
 
         # # Smoothing the image
         # for ii in range(1):
