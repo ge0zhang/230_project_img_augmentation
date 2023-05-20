@@ -23,7 +23,7 @@ plt.imshow(lab)
 plt.title('Original Label')
 
 for i in range(n):
-    inp2, lab2 = Augmentation(inp, lab, GridRatio=2)
+    inp2, lab2 = Augmentation(inp, lab, image_to_grid_ratio=2)
 
     plt.subplot(2, 4, i+2)
     plt.imshow(cv2.cvtColor(inp2, cv2.COLOR_BGR2RGB))
